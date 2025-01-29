@@ -61,11 +61,6 @@ def parse_data(event):
     pass
 
 
-def get_package_type(archivematica_uuid):
-    # return package type, one of AIP or DIP
-    pass
-
-
 def deliver_success_notification(
         client, config, archivematica_uuid, package_id):
     """Send SNS message about successful job.
@@ -143,9 +138,7 @@ def lambda_handler(event, context):
         config = get_config(full_config_path)
         sns_client = get_client_with_role('sns', config)
         package_id, archivematica_uuid = parse_data(event)
-        package_type = get_package_type(archivematica_uuid)
-        if package_type == 'AIP':
-            deliver_success_notification(
-                sns_client, config, archivematica_uuid, package_id)
+        deliver_success_notification(
+            sns_client, config, archivematica_uuid, package_id)
     except Exception as e:
         deliver_failure_notification(sns_client, package_id, e)
