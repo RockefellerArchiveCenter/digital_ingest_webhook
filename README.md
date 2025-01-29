@@ -14,6 +14,15 @@ cd digital_ingest_webhook
 
 This repository is intended to be deployed as a Lambda script in AWS infrastructure.
 
+### Expected data structure
+
+```
+{
+    "archivematica_uuid": {package uuid},
+    "package_id": {package name}
+}
+```
+
 ## License
 
 This code is released under the MIT License.
