@@ -12,6 +12,14 @@ logger.setLevel(logging.INFO)
 full_config_path = f"/{environ.get('ENV')}/{environ.get('APP_CONFIG_PATH')}"
 
 
+class AuthenticationError(Exception):
+    pass
+
+
+class ParseError(Exception):
+    pass
+
+
 def get_config(ssm_parameter_path):
     """Fetch config values from Parameter Store.
 
@@ -39,7 +47,7 @@ def get_config(ssm_parameter_path):
             configuration[section_name] = param.get('Value')
 
     except BaseException:
-        print("Encountered an error loading config from SSM.")
+        logging.error("Encountered an error loading config from SSM.")
         traceback.print_exc()
     finally:
         return configuration
@@ -55,25 +63,47 @@ def get_client_with_role(resource, config):
     return assumed_role_session.client(resource)
 
 
-def parse_data(event):
-    # parse data, throw error if missing identifier or package id
-    # Return archivematica uuid and package id (both of which are in data)
-    pass
+def authorize(event):
+    """Checks API Key header to make sure request is authorized."""
+    logging.debug('Attempting authorization')
+    try:
+        api_key = event['headers']['x-api-key']
+        assert api_key == environ.get('ARCHIVEMATICA_API_KEY')
+    except KeyError:
+        raise AuthenticationError("Missing API key")
+    except AssertionError:
+        raise AuthenticationError("Invalid API key")
 
 
-def deliver_success_notification(
-        client, config, archivematica_uuid, package_id):
+def parse_data(body):
+    """Returns data from request body.
+
+    Args:
+        body (dict): Request body
+
+    Returns:
+        packge_id (tuple of strings): attribute parsed from body.
+    """
+    logging.debug(f'Parsing data from body: {body}')
+    try:
+        package_id = body['package_id']
+        return package_id
+    except KeyError:
+        raise ParseError(
+            f'Data received did not have expected structure. {body}')
+
+
+def deliver_notification(client, config, package_id):
     """Send SNS message about successful job.
 
     Args:
-        package_path (pathlib.Path): location of the package binary
-        data (dict): data about the package
+        client (boto3.Client): SNS client instance
+        config (dict): Configuration values
+        package_id (str): Package identifier
     """
-    # TODO does the package ID need to be in the data?
-    package_data = {'archivematica_uuid': archivematica_uuid}
     client.publish(
         TopicArn=config.get('AWS_SNS_TOPIC'),
-        Message=f'Package {package_id} successfully discovered.',
+        Message=f'Post store webhook for {package_id} received.',
         MessageAttributes={
             'package_id': {
                 'DataType': 'String',
@@ -86,59 +116,30 @@ def deliver_success_notification(
             'outcome': {
                 'DataType': 'String',
                 'StringValue': 'SUCCESS',
-            },
-            'package_data': {
-                'DataType': 'String',
-                'StringValue': json.dumps(package_data),
-            },
-        })
-    logging.debug('Success notification delivered.')
-
-
-def deliver_failure_notification(client, config, package_id, exception):
-    """Send SNS message about failed job.
-
-    Args:
-        package_path (pathlib.Path): location of the package binary
-        data (dict): data about the package
-        exception (Exception): the exception that was thrown.
-    """
-    tb = ''.join(traceback.format_exception(exception)[:-1])
-    client.publish(
-        TopicArn=config.get('AWS_SNS_TOPIC'),
-        Message=f'Error handlin post store callback for {package_id}.',
-        MessageAttributes={
-            'package_id': {
-                'DataType': 'String',
-                'StringValue': package_id,
-            },
-            'service': {
-                'DataType': 'String',
-                'StringValue': 'webhook',
-            },
-            'outcome': {
-                'DataType': 'String',
-                'StringValue': 'FAILURE',
-            },
-            'message': {
-                'DataType': 'String',
-                'StringValue': str(exception),
-            },
-            'traceback': {
-                'DataType': 'String',
-                'StringValue': tb,
             }
         })
-    logging.debug('Failure notification delivered.')
+    logging.debug('Notification delivered.')
 
 
 def lambda_handler(event, context):
-    # TODO what is getting passed in here as the event?
     try:
+        authorize(event)
         config = get_config(full_config_path)
         sns_client = get_client_with_role('sns', config)
-        package_id, archivematica_uuid = parse_data(event)
-        deliver_success_notification(
-            sns_client, config, archivematica_uuid, package_id)
+        package_id = parse_data(json.loads(event['body']))
+        deliver_notification(sns_client, config, package_id)
+        logging.info(
+            f'Notification for package {package_id} sent successfully.')
+        return f'Notification for package {package_id} sent successfully.'
+    except AuthenticationError as e:
+        logging.error(f"Authentication error: {str(e)}")
+        return {
+            "statusCode": 403,
+            "body": str(e)
+        }
     except Exception as e:
-        deliver_failure_notification(sns_client, package_id, e)
+        logging.error(f"Failed to handle request: {str(e)}")
+        return {
+            "statusCode": 500,
+            "body": f"Failed to handle request: {str(e)}"
+        }
