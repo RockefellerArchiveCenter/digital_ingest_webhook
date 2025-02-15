@@ -31,8 +31,8 @@ def test_parse_data():
         parse_data({})
     assert str(err.value) == 'Data received did not have expected structure. {}'
 
-    output = parse_data({"package_id": "12345"})
-    assert output == "12345"
+    output = parse_data({"package_id": "12345", "archivematica_uuid": "54321"})
+    assert output == ("12345", "54321")
 
 
 @ mock_aws
@@ -49,13 +49,16 @@ def test_deliver_notification():
 
     config = {"AWS_SNS_TOPIC": topic_arn}
     package_id = "12345"
-    deliver_notification(sns, config, package_id)
+    archivematica_uuid = "54321"
+    deliver_notification(sns, config, package_id, archivematica_uuid)
 
     queue = sqs_conn.get_queue_by_name(QueueName="test-queue")
     messages = queue.receive_messages(MaxNumberOfMessages=1)
     message_body = json.loads(messages[0].body)
     assert message_body['MessageAttributes']['outcome']['Value'] == 'SUCCESS'
     assert message_body['MessageAttributes']['package_id']['Value'] == package_id
+    assert message_body['MessageAttributes']['package_data']['Value'] == json.dumps(
+        {"identifiers": {"archivematica_uuid": archivematica_uuid}})
     assert message_body['MessageAttributes']['service']['Value'] == 'webhook'
 
 
@@ -66,8 +69,9 @@ def test_deliver_notification():
 @patch('src.handle_http_request.deliver_notification')
 def test_lambda_handler(mock_notification, mock_parse,
                         mock_client, mock_config, mock_authorize):
-    event_data = {"body": "{\"package_id\": \"12345\"}"}
-    mock_parse.return_value = "12345"
+    event_data = {
+        "body": "{\"package_id\": \"12345\", \"archivematica_uuid\": \"54321\"}"}
+    mock_parse.return_value = ("12345", "54321")
     mock_client.return_value = 'mock_client'
     config = {"AWS_SNS_TOPIC": "987654321"}
     mock_config.return_value = config
@@ -77,8 +81,10 @@ def test_lambda_handler(mock_notification, mock_parse,
     mock_authorize.assert_called_once_with(event_data)
     mock_config.assert_called_once()
     mock_client.assert_called_once_with('sns', config)
-    mock_parse.assert_called_once_with({"package_id": "12345"})
-    mock_notification.assert_called_once_with('mock_client', config, "12345")
+    mock_parse.assert_called_once_with(
+        {"package_id": "12345", "archivematica_uuid": "54321"})
+    mock_notification.assert_called_once_with(
+        'mock_client', config, "12345", "54321")
     assert output == 'Notification for package 12345 sent successfully.'
 
     mock_notification.reset_mock()

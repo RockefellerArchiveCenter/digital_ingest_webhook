@@ -87,13 +87,14 @@ def parse_data(body):
     logging.debug(f'Parsing data from body: {body}')
     try:
         package_id = body['package_id']
-        return package_id
+        archivematica_uuid = body['archivematica_uuid']
+        return package_id, archivematica_uuid
     except KeyError:
         raise ParseError(
             f'Data received did not have expected structure. {body}')
 
 
-def deliver_notification(client, config, package_id):
+def deliver_notification(client, config, package_id, archivematica_uuid):
     """Send SNS message about successful job.
 
     Args:
@@ -116,7 +117,12 @@ def deliver_notification(client, config, package_id):
             'outcome': {
                 'DataType': 'String',
                 'StringValue': 'SUCCESS',
-            }
+            },
+            'package_data': {
+                'DataType': 'String',
+                'StringValue': json.dumps(
+                    {'identifiers': {'archivematica_uuid': archivematica_uuid}}),
+            },
         })
     logging.debug('Notification delivered.')
 
@@ -126,8 +132,12 @@ def lambda_handler(event, context):
         authorize(event)
         config = get_config(full_config_path)
         sns_client = get_client_with_role('sns', config)
-        package_id = parse_data(json.loads(event['body']))
-        deliver_notification(sns_client, config, package_id)
+        package_id, archivematica_uuid = parse_data(json.loads(event['body']))
+        deliver_notification(
+            sns_client,
+            config,
+            package_id,
+            archivematica_uuid)
         logging.info(
             f'Notification for package {package_id} sent successfully.')
         return f'Notification for package {package_id} sent successfully.'
