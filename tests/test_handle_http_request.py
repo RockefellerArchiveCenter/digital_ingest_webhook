@@ -59,7 +59,7 @@ def test_deliver_notification():
     assert message_body['MessageAttributes']['package_id']['Value'] == package_id
     assert message_body['MessageAttributes']['package_data']['Value'] == json.dumps(
         {"identifiers": {"archivematica_uuid": archivematica_uuid}})
-    assert message_body['MessageAttributes']['service']['Value'] == 'webhook'
+    assert message_body['MessageAttributes']['service']['Value'] == 'digital_ingest_webhook'
 
 
 @patch('src.handle_http_request.authorize')

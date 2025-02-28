@@ -112,7 +112,7 @@ def deliver_notification(client, config, package_id, archivematica_uuid):
             },
             'service': {
                 'DataType': 'String',
-                'StringValue': 'webhook',
+                'StringValue': 'digital_ingest_webhook',
             },
             'outcome': {
                 'DataType': 'String',
