@@ -35,7 +35,7 @@ def test_parse_data():
     assert output == ("12345", "54321")
 
 
-@ mock_aws
+@mock_aws
 def test_deliver_notification():
     sns = boto3.client('sns', region_name='us-east-1')
     topic_arn = sns.create_topic(Name='my-topic')['TopicArn']
