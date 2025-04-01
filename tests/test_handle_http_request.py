@@ -14,15 +14,16 @@ from src.handle_http_request import (AuthenticationError, ParseError,
 def test_authorize(monkeypatch):
     """Asserts authorization raises expected exceptions."""
     with pytest.raises(AuthenticationError) as err:
-        authorize({})
+        authorize({}, {})
     assert str(err.value) == "Missing API key"
 
     monkeypatch.setenv('ARCHIVEMATICA_API_KEY', '12345')
     with pytest.raises(AuthenticationError) as err:
-        authorize({'headers': {'x-api-key': '54321'}})
+        authorize({'headers': {'x-api-key': '54321'}}, {})
     assert str(err.value) == "Invalid API key"
 
-    authorize({'headers': {'x-api-key': '12345'}})
+    authorize({'headers': {'x-api-key': '12345'}},
+              {'ARCHIVEMATICA_API_KEY': '12345'})
 
 
 def test_parse_data():
@@ -78,7 +79,7 @@ def test_lambda_handler(mock_notification, mock_parse,
 
     output = lambda_handler(event_data, None)
 
-    mock_authorize.assert_called_once_with(event_data)
+    mock_authorize.assert_called_once_with(event_data, config)
     mock_config.assert_called_once()
     mock_client.assert_called_once_with('sns', config)
     mock_parse.assert_called_once_with(
