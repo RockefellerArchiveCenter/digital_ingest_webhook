@@ -1,7 +1,7 @@
 import json
 import logging
 import traceback
-from os import environ
+from os import getenv
 
 import boto3
 from aws_assume_role_lib import assume_role
@@ -9,7 +9,7 @@ from aws_assume_role_lib import assume_role
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-full_config_path = f"/{environ.get('ENV')}/{environ.get('APP_CONFIG_PATH')}"
+full_config_path = f"/{getenv('ENV')}/{getenv('APP_CONFIG_PATH')}"
 
 
 class AuthenticationError(Exception):
@@ -33,7 +33,7 @@ def get_config(ssm_parameter_path):
     try:
         ssm_client = boto3.client(
             'ssm',
-            region_name=environ.get('AWS_REGION'))
+            region_name=getenv('AWS_REGION'))
 
         param_details = ssm_client.get_parameters_by_path(
             Path=ssm_parameter_path,
@@ -59,16 +59,16 @@ def get_client_with_role(resource, config):
     assumed_role_session = assume_role(
         session,
         config.get('AWS_ROLE_ARN'),
-        region_name=config.get('AWS_REGION'))
+        region_name=getenv('AWS_REGION'))
     return assumed_role_session.client(resource)
 
 
-def authorize(event):
+def authorize(event, config):
     """Checks API Key header to make sure request is authorized."""
     logging.debug('Attempting authorization')
     try:
         api_key = event['headers']['x-api-key']
-        assert api_key == environ.get('ARCHIVEMATICA_API_KEY')
+        assert api_key == config.get('ARCHIVEMATICA_API_KEY')
     except KeyError:
         raise AuthenticationError("Missing API key")
     except AssertionError:
@@ -129,8 +129,8 @@ def deliver_notification(client, config, package_id, archivematica_uuid):
 
 def lambda_handler(event, context):
     try:
-        authorize(event)
         config = get_config(full_config_path)
+        authorize(event, config)
         sns_client = get_client_with_role('sns', config)
         package_id, archivematica_uuid = parse_data(json.loads(event['body']))
         deliver_notification(
