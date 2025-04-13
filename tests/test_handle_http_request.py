@@ -56,10 +56,10 @@ def test_deliver_notification():
     queue = sqs_conn.get_queue_by_name(QueueName="test-queue")
     messages = queue.receive_messages(MaxNumberOfMessages=1)
     message_body = json.loads(messages[0].body)
+    assert message_body['Message'] == json.dumps(
+        {"identifiers": {"archivematica_uuid": archivematica_uuid}})
     assert message_body['MessageAttributes']['outcome']['Value'] == 'SUCCESS'
     assert message_body['MessageAttributes']['package_id']['Value'] == package_id
-    assert message_body['MessageAttributes']['package_data']['Value'] == json.dumps(
-        {"identifiers": {"archivematica_uuid": archivematica_uuid}})
     assert message_body['MessageAttributes']['service']['Value'] == 'digital_ingest_webhook'
 
 

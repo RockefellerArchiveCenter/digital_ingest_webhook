@@ -104,7 +104,8 @@ def deliver_notification(client, config, package_id, archivematica_uuid):
     """
     client.publish(
         TopicArn=config.get('AWS_SNS_TOPIC'),
-        Message=f'Post store webhook for {package_id} received.',
+        Message=json.dumps(
+            {'identifiers': {'archivematica_uuid': archivematica_uuid}}),
         MessageAttributes={
             'package_id': {
                 'DataType': 'String',
@@ -118,10 +119,9 @@ def deliver_notification(client, config, package_id, archivematica_uuid):
                 'DataType': 'String',
                 'StringValue': 'SUCCESS',
             },
-            'package_data': {
+            'message': {
                 'DataType': 'String',
-                'StringValue': json.dumps(
-                    {'identifiers': {'archivematica_uuid': archivematica_uuid}}),
+                'StringValue': f'Post store webhook for {package_id} received.',
             },
         })
     logging.debug('Notification delivered.')
