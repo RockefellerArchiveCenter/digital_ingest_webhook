@@ -21,6 +21,15 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+      
+      - name: Install requirements
+        run: |
+            mkdir package
+            python -m pip install --upgrade pip
+            pip install --platform manylinux2014_x86_64 --only-binary=:all: -r requirements.txt --target ./package
+            cd package
+            zip -r ../${LAMBDA_NAME}.zip .
+            cd ..
 
       - name: Make zip file
         run: |
