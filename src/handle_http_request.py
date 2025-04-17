@@ -4,7 +4,6 @@ import traceback
 from os import getenv
 
 import boto3
-from aws_assume_role_lib import assume_role
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -53,16 +52,6 @@ def get_config(ssm_parameter_path):
         return configuration
 
 
-def get_client_with_role(resource, config):
-    """Gets Boto3 client which authenticates with a specific IAM role."""
-    session = boto3.Session()
-    assumed_role_session = assume_role(
-        session,
-        config.get('AWS_ROLE_ARN'),
-        region_name=getenv('AWS_REGION'))
-    return assumed_role_session.client(resource)
-
-
 def authorize(event, config):
     """Checks API Key header to make sure request is authorized."""
     logging.debug('Attempting authorization')
@@ -94,14 +83,17 @@ def parse_data(body):
             f'Data received did not have expected structure. {body}')
 
 
-def deliver_notification(client, config, package_id, archivematica_uuid):
+def deliver_notification(config, package_id, archivematica_uuid):
     """Send SNS message about successful job.
 
     Args:
-        client (boto3.Client): SNS client instance
         config (dict): Configuration values
         package_id (str): Package identifier
+        archivematicat_uuid (str): Archivematica UUID
     """
+    client = boto3.client(
+        'sns',
+        region_name=getenv('AWS_DEFAULT_REGION', 'us-east-1'))
     client.publish(
         TopicArn=config.get('AWS_SNS_TOPIC'),
         Message=json.dumps(
@@ -131,10 +123,8 @@ def lambda_handler(event, context):
     try:
         config = get_config(full_config_path)
         authorize(event, config)
-        sns_client = get_client_with_role('sns', config)
         package_id, archivematica_uuid = parse_data(json.loads(event['body']))
         deliver_notification(
-            sns_client,
             config,
             package_id,
             archivematica_uuid)

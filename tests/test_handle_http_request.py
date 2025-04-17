@@ -51,7 +51,7 @@ def test_deliver_notification():
     config = {"AWS_SNS_TOPIC": topic_arn}
     package_id = "12345"
     archivematica_uuid = "54321"
-    deliver_notification(sns, config, package_id, archivematica_uuid)
+    deliver_notification(config, package_id, archivematica_uuid)
 
     queue = sqs_conn.get_queue_by_name(QueueName="test-queue")
     messages = queue.receive_messages(MaxNumberOfMessages=1)
@@ -65,15 +65,13 @@ def test_deliver_notification():
 
 @patch('src.handle_http_request.authorize')
 @patch('src.handle_http_request.get_config')
-@patch('src.handle_http_request.get_client_with_role')
 @patch('src.handle_http_request.parse_data')
 @patch('src.handle_http_request.deliver_notification')
 def test_lambda_handler(mock_notification, mock_parse,
-                        mock_client, mock_config, mock_authorize):
+                        mock_config, mock_authorize):
     event_data = {
         "body": "{\"package_id\": \"12345\", \"archivematica_uuid\": \"54321\"}"}
     mock_parse.return_value = ("12345", "54321")
-    mock_client.return_value = 'mock_client'
     config = {"AWS_SNS_TOPIC": "987654321"}
     mock_config.return_value = config
 
@@ -81,11 +79,9 @@ def test_lambda_handler(mock_notification, mock_parse,
 
     mock_authorize.assert_called_once_with(event_data, config)
     mock_config.assert_called_once()
-    mock_client.assert_called_once_with('sns', config)
     mock_parse.assert_called_once_with(
         {"package_id": "12345", "archivematica_uuid": "54321"})
-    mock_notification.assert_called_once_with(
-        'mock_client', config, "12345", "54321")
+    mock_notification.assert_called_once_with(config, "12345", "54321")
     assert output == 'Notification for package 12345 sent successfully.'
 
     mock_notification.reset_mock()
