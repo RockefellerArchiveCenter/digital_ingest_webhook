@@ -96,6 +96,7 @@ def deliver_notification(config, package_id, archivematica_uuid):
         region_name=getenv('AWS_DEFAULT_REGION', 'us-east-1'))
     client.publish(
         TopicArn=config.get('AWS_SNS_TOPIC'),
+        MessageGroupId='digital_ingest_webhook',
         Message=json.dumps(
             {'identifiers': {'archivematica_uuid': archivematica_uuid}}),
         MessageAttributes={
