@@ -39,13 +39,25 @@ def test_parse_data():
 @mock_aws
 def test_deliver_notification():
     sns = boto3.client('sns', region_name='us-east-1')
-    topic_arn = sns.create_topic(Name='my-topic')['TopicArn']
+    topic_arn = sns.create_topic(
+        Name='my-topic.fifo',
+        Attributes={
+            "FifoTopic": 'true',
+            "ContentBasedDeduplication": 'true',
+        }
+    )['TopicArn']
     sqs_conn = boto3.resource("sqs", region_name="us-east-1")
-    sqs_conn.create_queue(QueueName="test-queue")
+    queue_name = "test-queue.fifo"
+    sqs_conn.create_queue(
+        QueueName=queue_name,
+        Attributes={
+            "FifoQueue": 'true',
+            "ContentBasedDeduplication": 'true',
+        })
     sns.subscribe(
         TopicArn=topic_arn,
         Protocol="sqs",
-        Endpoint=f"arn:aws:sqs:us-east-1:{DEFAULT_ACCOUNT_ID}:test-queue",
+        Endpoint=f"arn:aws:sqs:us-east-1:{DEFAULT_ACCOUNT_ID}:{queue_name}",
     )
 
     config = {"AWS_SNS_TOPIC": topic_arn}
@@ -53,7 +65,7 @@ def test_deliver_notification():
     archivematica_uuid = "54321"
     deliver_notification(config, package_id, archivematica_uuid)
 
-    queue = sqs_conn.get_queue_by_name(QueueName="test-queue")
+    queue = sqs_conn.get_queue_by_name(QueueName=queue_name)
     messages = queue.receive_messages(MaxNumberOfMessages=1)
     message_body = json.loads(messages[0].body)
     assert message_body['Message'] == json.dumps(
