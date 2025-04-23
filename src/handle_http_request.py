@@ -97,6 +97,7 @@ def deliver_notification(config, package_id, archivematica_uuid):
     client.publish(
         TopicArn=config.get('AWS_SNS_TOPIC'),
         MessageGroupId=f'digital_ingest_webhook-{package_id}',
+        MessageDeduplicationId=package_id,
         Message=json.dumps(
             {'identifiers': {'archivematica_uuid': archivematica_uuid}}),
         MessageAttributes={
