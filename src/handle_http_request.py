@@ -1,15 +1,14 @@
 import json
 import logging
 import traceback
-from os import environ
+from os import getenv
 
 import boto3
-from aws_assume_role_lib import assume_role
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-full_config_path = f"/{environ.get('ENV')}/{environ.get('APP_CONFIG_PATH')}"
+full_config_path = f"/{getenv('ENV')}/{getenv('APP_CONFIG_PATH')}"
 
 
 class AuthenticationError(Exception):
@@ -33,7 +32,7 @@ def get_config(ssm_parameter_path):
     try:
         ssm_client = boto3.client(
             'ssm',
-            region_name=environ.get('AWS_REGION'))
+            region_name=getenv('AWS_REGION'))
 
         param_details = ssm_client.get_parameters_by_path(
             Path=ssm_parameter_path,
@@ -53,22 +52,12 @@ def get_config(ssm_parameter_path):
         return configuration
 
 
-def get_client_with_role(resource, config):
-    """Gets Boto3 client which authenticates with a specific IAM role."""
-    session = boto3.Session()
-    assumed_role_session = assume_role(
-        session,
-        config.get('AWS_ROLE_ARN'),
-        region_name=config.get('AWS_REGION'))
-    return assumed_role_session.client(resource)
-
-
-def authorize(event):
+def authorize(event, config):
     """Checks API Key header to make sure request is authorized."""
     logging.debug('Attempting authorization')
     try:
         api_key = event['headers']['x-api-key']
-        assert api_key == environ.get('ARCHIVEMATICA_API_KEY')
+        assert api_key == config.get('ARCHIVEMATICA_API_KEY')
     except KeyError:
         raise AuthenticationError("Missing API key")
     except AssertionError:
@@ -94,17 +83,23 @@ def parse_data(body):
             f'Data received did not have expected structure. {body}')
 
 
-def deliver_notification(client, config, package_id, archivematica_uuid):
+def deliver_notification(config, package_id, archivematica_uuid):
     """Send SNS message about successful job.
 
     Args:
-        client (boto3.Client): SNS client instance
         config (dict): Configuration values
         package_id (str): Package identifier
+        archivematicat_uuid (str): Archivematica UUID
     """
+    client = boto3.client(
+        'sns',
+        region_name=getenv('AWS_DEFAULT_REGION', 'us-east-1'))
     client.publish(
         TopicArn=config.get('AWS_SNS_TOPIC'),
-        Message=f'Post store webhook for {package_id} received.',
+        MessageGroupId=f'digital_ingest_webhook-{package_id}',
+        MessageDeduplicationId=package_id,
+        Message=json.dumps(
+            {'identifiers': {'archivematica_uuid': archivematica_uuid}}),
         MessageAttributes={
             'package_id': {
                 'DataType': 'String',
@@ -118,10 +113,9 @@ def deliver_notification(client, config, package_id, archivematica_uuid):
                 'DataType': 'String',
                 'StringValue': 'SUCCESS',
             },
-            'package_data': {
+            'message': {
                 'DataType': 'String',
-                'StringValue': json.dumps(
-                    {'identifiers': {'archivematica_uuid': archivematica_uuid}}),
+                'StringValue': f'Post store webhook for {package_id} received.',
             },
         })
     logging.debug('Notification delivered.')
@@ -129,12 +123,10 @@ def deliver_notification(client, config, package_id, archivematica_uuid):
 
 def lambda_handler(event, context):
     try:
-        authorize(event)
         config = get_config(full_config_path)
-        sns_client = get_client_with_role('sns', config)
+        authorize(event, config)
         package_id, archivematica_uuid = parse_data(json.loads(event['body']))
         deliver_notification(
-            sns_client,
             config,
             package_id,
             archivematica_uuid)
