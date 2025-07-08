@@ -10,11 +10,21 @@ git clone https://github.com/RockefellerArchiveCenter/digital_ingest_webhook.git
 cd digital_ingest_webhook
 ```
 
+## Service Flow
+
+The service processes requests as follows:
+- Requests are authenticated via the `X-API-KEY` HTTP header
+- The request body is parse for expected values
+- A notification indicating that the webhook was successfully recieved is delivered to an SNS topic
+
 ## Usage
 
 This repository is intended to be deployed as a Lambda script in AWS infrastructure.
 
 ### Expected data structure
+
+The service expects a `X-API-KEY` HTTP header to be present in the request, and the body of the 
+request to have the following structure:
 
 ```
 {
