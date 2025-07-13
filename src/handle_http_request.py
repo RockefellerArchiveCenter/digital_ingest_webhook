@@ -115,7 +115,7 @@ def deliver_notification(config, package_id, archivematica_uuid):
             },
             'message': {
                 'DataType': 'String',
-                'StringValue': f'Post store webhook for {package_id} received.',
+                'StringValue': 'Package successfully stored in Archivematica.',
             },
         })
     logging.debug('Notification delivered.')
