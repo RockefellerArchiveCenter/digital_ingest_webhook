@@ -6,24 +6,8 @@ import pytest
 from moto import mock_aws
 from moto.core import DEFAULT_ACCOUNT_ID
 
-from src.handle_http_request import (AuthenticationError, ParseError,
-                                     authorize, deliver_notification,
+from src.handle_http_request import (ParseError, deliver_notification,
                                      lambda_handler, parse_data)
-
-
-def test_authorize(monkeypatch):
-    """Asserts authorization raises expected exceptions."""
-    with pytest.raises(AuthenticationError) as err:
-        authorize({}, {})
-    assert str(err.value) == "Missing API key"
-
-    monkeypatch.setenv('ARCHIVEMATICA_API_KEY', '12345')
-    with pytest.raises(AuthenticationError) as err:
-        authorize({'headers': {'x-api-key': '54321'}}, {})
-    assert str(err.value) == "Invalid API key"
-
-    authorize({'headers': {'x-api-key': '12345'}},
-              {'ARCHIVEMATICA_API_KEY': '12345'})
 
 
 def test_parse_data():
@@ -75,12 +59,10 @@ def test_deliver_notification():
     assert message_body['MessageAttributes']['service']['Value'] == 'digital_ingest_webhook'
 
 
-@patch('src.handle_http_request.authorize')
 @patch('src.handle_http_request.get_config')
 @patch('src.handle_http_request.parse_data')
 @patch('src.handle_http_request.deliver_notification')
-def test_lambda_handler(mock_notification, mock_parse,
-                        mock_config, mock_authorize):
+def test_lambda_handler(mock_notification, mock_parse, mock_config):
     event_data = {
         "body": "{\"package_id\": \"12345\", \"archivematica_uuid\": \"54321\"}"}
     mock_parse.return_value = ("12345", "54321")
@@ -89,7 +71,6 @@ def test_lambda_handler(mock_notification, mock_parse,
 
     output = lambda_handler(event_data, None)
 
-    mock_authorize.assert_called_once_with(event_data, config)
     mock_config.assert_called_once()
     mock_parse.assert_called_once_with(
         {"package_id": "12345", "archivematica_uuid": "54321"})
@@ -109,7 +90,9 @@ def test_lambda_handler(mock_notification, mock_parse,
 
     mock_notification.reset_mock()
 
-    mock_authorize.side_effect = AuthenticationError("Invalid API key")
+    mock_config.side_effect = Exception("Error loading SSM config")
     output = lambda_handler(event_data, None)
     mock_notification.assert_not_called()
-    assert output == {"statusCode": 403, "body": "Invalid API key"}
+    assert output == {
+        "statusCode": 500,
+        "body": "Failed to handle request: Error loading SSM config"}

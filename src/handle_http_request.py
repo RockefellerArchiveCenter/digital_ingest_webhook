@@ -1,6 +1,5 @@
 import json
 import logging
-import traceback
 from os import getenv
 
 import boto3
@@ -29,39 +28,20 @@ def get_config(ssm_parameter_path):
         configuration (dict): all parameters found at the supplied path.
     """
     configuration = {}
-    try:
-        ssm_client = boto3.client(
-            'ssm',
-            region_name=getenv('AWS_REGION'))
+    ssm_client = boto3.client(
+        'ssm',
+        region_name=getenv('AWS_REGION'))
 
-        param_details = ssm_client.get_parameters_by_path(
-            Path=ssm_parameter_path,
-            Recursive=False,
-            WithDecryption=True)
+    param_details = ssm_client.get_parameters_by_path(
+        Path=ssm_parameter_path,
+        Recursive=False,
+        WithDecryption=True)
 
-        for param in param_details.get('Parameters', []):
-            param_path_array = param.get('Name').split("/")
-            section_position = len(param_path_array) - 1
-            section_name = param_path_array[section_position]
-            configuration[section_name] = param.get('Value')
-
-    except BaseException:
-        logging.error("Encountered an error loading config from SSM.")
-        traceback.print_exc()
-    finally:
-        return configuration
-
-
-def authorize(event, config):
-    """Checks API Key header to make sure request is authorized."""
-    logging.debug('Attempting authorization')
-    try:
-        api_key = event['headers']['x-api-key']
-        assert api_key == config.get('ARCHIVEMATICA_API_KEY')
-    except KeyError:
-        raise AuthenticationError("Missing API key")
-    except AssertionError:
-        raise AuthenticationError("Invalid API key")
+    for param in param_details.get('Parameters', []):
+        param_path_array = param.get('Name').split("/")
+        section_position = len(param_path_array) - 1
+        section_name = param_path_array[section_position]
+        configuration[section_name] = param.get('Value')
 
 
 def parse_data(body):
@@ -124,7 +104,6 @@ def deliver_notification(config, package_id, archivematica_uuid):
 def lambda_handler(event, context):
     try:
         config = get_config(full_config_path)
-        authorize(event, config)
         package_id, archivematica_uuid = parse_data(json.loads(event['body']))
         deliver_notification(
             config,
