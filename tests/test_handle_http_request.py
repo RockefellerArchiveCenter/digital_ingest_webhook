@@ -75,7 +75,10 @@ def test_lambda_handler(mock_notification, mock_parse, mock_config):
     mock_parse.assert_called_once_with(
         {"package_id": "12345", "archivematica_uuid": "54321"})
     mock_notification.assert_called_once_with(config, "12345", "54321")
-    assert output == 'Notification for package 12345 sent successfully.'
+    assert output == {
+        'statusCode': 200,
+        'body': 'Notification for package 12345 sent successfully.'
+    }
 
     mock_notification.reset_mock()
 

@@ -27,21 +27,26 @@ def get_config(ssm_parameter_path):
     Returns:
         configuration (dict): all parameters found at the supplied path.
     """
-    configuration = {}
-    ssm_client = boto3.client(
-        'ssm',
-        region_name=getenv('AWS_REGION'))
+    try:
+        configuration = {}
+        ssm_client = boto3.client(
+            'ssm',
+            region_name=getenv('AWS_REGION'))
 
-    param_details = ssm_client.get_parameters_by_path(
-        Path=ssm_parameter_path,
-        Recursive=False,
-        WithDecryption=True)
+        param_details = ssm_client.get_parameters_by_path(
+            Path=ssm_parameter_path,
+            Recursive=False,
+            WithDecryption=True)
 
-    for param in param_details.get('Parameters', []):
-        param_path_array = param.get('Name').split("/")
-        section_position = len(param_path_array) - 1
-        section_name = param_path_array[section_position]
-        configuration[section_name] = param.get('Value')
+        for param in param_details.get('Parameters', []):
+            param_path_array = param.get('Name').split("/")
+            section_position = len(param_path_array) - 1
+            section_name = param_path_array[section_position]
+            configuration[section_name] = param.get('Value')
+
+        return configuration
+    except Exception as e:
+        raise AuthenticationError(e)
 
 
 def parse_data(body):
@@ -111,7 +116,10 @@ def lambda_handler(event, context):
             archivematica_uuid)
         logging.info(
             f'Notification for package {package_id} sent successfully.')
-        return f'Notification for package {package_id} sent successfully.'
+        return {
+            "statusCode": 200,
+            "body": f'Notification for package {package_id} sent successfully.'
+        }
     except AuthenticationError as e:
         logging.error(f"Authentication error: {str(e)}")
         return {
