@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.0.1](https://github.com/RockefellerArchiveCenter/digital_ingest_webhook/compare/v1.0.0...v1.0.1) (2026-07-06)
+
+
+### Bug Fixes
+
+* **deps:** Scheduled dependency updates ([47881d3](https://github.com/RockefellerArchiveCenter/digital_ingest_webhook/commit/47881d30066e24c537b623827fc53940641ec06e))
+* **deps:** Scheduled dependency updates ([4b61345](https://github.com/RockefellerArchiveCenter/digital_ingest_webhook/commit/4b6134558b854a2e30ee4b09814ae94b91fd534b))
+* **deps:** Scheduled dependency updates ([4b61345](https://github.com/RockefellerArchiveCenter/digital_ingest_webhook/commit/4b6134558b854a2e30ee4b09814ae94b91fd534b))
+* **deps:** Scheduled dependency updates ([7eefb21](https://github.com/RockefellerArchiveCenter/digital_ingest_webhook/commit/7eefb214d9a909c03568cc80537b514776df0fdf))
+
 ## 1.0.0 (2026-06-18)
 
 
