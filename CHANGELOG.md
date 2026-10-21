@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.5](https://github.com/RockefellerArchiveCenter/digital_ingest_webhook/compare/v1.0.4...v1.0.5) (2026-10-21)
+
+
+### Bug Fixes
+
+* update pip ([98b6fb8](https://github.com/RockefellerArchiveCenter/digital_ingest_webhook/commit/98b6fb822f7e4935d1a39e23b1330c97068ed039))
+* update pip ([98b6fb8](https://github.com/RockefellerArchiveCenter/digital_ingest_webhook/commit/98b6fb822f7e4935d1a39e23b1330c97068ed039))
+* update pip ([7a6aabb](https://github.com/RockefellerArchiveCenter/digital_ingest_webhook/commit/7a6aabb556ae35a87a1826c7df3a810f1eacf213))
+* update pip ([7a6aabb](https://github.com/RockefellerArchiveCenter/digital_ingest_webhook/commit/7a6aabb556ae35a87a1826c7df3a810f1eacf213))
+* update pip ([ae194a8](https://github.com/RockefellerArchiveCenter/digital_ingest_webhook/commit/ae194a86e300e68b75db57cbd7d5859aae93eb81))
+
 ## [1.0.4](https://github.com/RockefellerArchiveCenter/digital_ingest_webhook/compare/v1.0.3...v1.0.4) (2026-10-05)
 
 
